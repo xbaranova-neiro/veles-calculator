@@ -1,0 +1,7 @@
+.DS_Store
+.openai/
+.env
+.env.*
+node_modules/
+*.log
+preview.jpg

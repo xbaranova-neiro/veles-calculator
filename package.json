@@ -1,0 +1,10 @@
+{
+  "name": "veles-calculator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test.mjs",
+    "build": "node build-standalone.mjs"
+  }
+}
