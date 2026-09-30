@@ -2,7 +2,7 @@ export const catalog=[
 ['slab','Плита 300 мм','м²',13334],['usp','УШП','м²',15785],['strip','Ленточный фундамент (укрупнённо)','м² пятна',null],['basement','Цокольный этаж · от','м² пятна',50000],['gas','Стены D400 / 375 мм','м² стен',12400],['customWall','Другой материал наружных стен','м² стен',null],['bearing','Несущие D500 / 250 мм','м² стен',9671],['partition','Перегородки','м² стен',null],['floor','Межэтажное перекрытие','м²',null],['roofBase','Стропильная система / базовый состав','м² скатов',6800],['metal','Металлочерепица / покрытие','м² скатов',5300],['soft','Гибкая черепица / покрытие','м² скатов',7300],['seam','Кликфальц / покрытие','м² скатов',7100],['coldRoof','Холодная кровля, полный выбранный состав','м² скатов',null],['flatRoof','Плоская кровля, полный выбранный состав','м²',null],['windows','Окна 70 мм, двухкамерные','м²',17160],['door','Входная дверь с терморазрывом','шт.',68000],['plasterFacade','Декоративная штукатурка фасада','м²',9100],['brickFacade','Облицовочный кирпич · от','м²',13000],['clinker','Клинкерная плитка','м²',14700],['plasticSoffit','Пластиковые софиты','пог. м',4500],['woodSoffit','Деревянная подшивка','пог. м',6000],['plasticGutter','Пластиковый водосток','пог. м',4300],['metalGutter','Металлический водосток','пог. м',6800],['terrace','Терраса / крыльцо / балкон','м²',25000],['whitebox','White Box, полный пакет','м² дома',26000],['plaster','Штукатурка внутри','м² стен',2650],['screed','Полусухая стяжка','м² пола',2500],['heating','Отопление, предварительная ставка','м² дома',15200],['plumbing','Сантехническая точка (уточнить состав)','точка',25000],['electric','Черновая электрика','м² дома',3600],['ventilation','Приточный клапан КИВ','шт.',10000]];
 // A strip foundation needs its own agreed project budget, not a made-up area tariff.
 Object.assign(catalog.find(x=>x[0]==='strip'),{1:'Ленточный фундамент: согласованная сумма',2:'комплект'});
-export const initialPrices=Object.fromEntries(catalog.map(([k,,,p])=>[k,p]));
+export const initialPrices={...Object.fromEntries(catalog.map(([k,,,p])=>[k,p])),mortgagePercent:10};
 export const round=n=>Math.round((n+Number.EPSILON)*100)/100;
 export function calculate(s,p){
  const missing=[],notes=[],rows=[];const addMissing=x=>{if(!missing.includes(x))missing.push(x)};
@@ -49,6 +49,14 @@ export function calculate(s,p){
  if(!s.wallOverride)notes.push('Из наружных стен вычтены указанные оконные и дверные проёмы.');
  if(s.foundation==='basement'||s.facade==='brickFacade')notes.push('Выбрана ставка «от»: результат — предварительная нижняя граница, не фиксированная цена.');
  notes.push('Сечения, армирование и несущую способность подтверждают по проекту.');
- const total=round(rows.reduce((sum,r)=>sum+r.amount,0)),mortgageExtra=num('mortgage');
- return{rows,missing,notes,total,area,footprint,perimeter,roof,wall,glazing,mortgage:mortgageExtra===null?null:round(total+mortgageExtra),groups:Object.entries(rows.reduce((out,r)=>{out[r.group]=round((out[r.group]||0)+r.amount);return out},{}))};
+ const baseTotal=round(rows.reduce((sum,r)=>sum+r.amount,0));
+ const rawPercent=p.mortgagePercent;
+ const mortgagePercent=rawPercent!==null&&rawPercent!==undefined&&rawPercent!==''&&Number.isFinite(Number(rawPercent))&&Number(rawPercent)>=0?Number(rawPercent):null;
+ let mortgageExtra=0;
+ if(s.mortgageEnabled){
+  if(mortgagePercent===null)addMissing('Укажите корректную надбавку за ипотеку в прайсе.');
+  else{mortgageExtra=round(baseTotal*mortgagePercent/100);rows.push({group:'Надбавка за ипотеку',label:`Ипотека · ${mortgagePercent}%`,qty:1,unit:'компл.',rate:mortgageExtra,amount:mortgageExtra});}
+ }
+ const total=round(baseTotal+mortgageExtra);
+ return{rows,missing,notes,total,baseTotal,mortgageExtra,mortgagePercent,area,footprint,perimeter,roof,wall,glazing,mortgage:s.mortgageEnabled&&mortgagePercent!==null?total:null,groups:Object.entries(rows.reduce((out,r)=>{out[r.group]=round((out[r.group]||0)+r.amount);return out},{}))};
 }
